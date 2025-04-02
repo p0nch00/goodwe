@@ -1,11 +1,12 @@
-"""Hybrid inverter support aka platform 205, 745, 753"""
 from __future__ import annotations
 
 import logging
+from typing import Tuple
 
-from .const import *
 from .exceptions import RequestFailedException, RequestRejectedException
-from .inverter import Inverter, OperationMode, SensorKind as Kind
+from .inverter import Inverter
+from .inverter import OperationMode
+from .inverter import SensorKind as Kind
 from .modbus import ILLEGAL_DATA_ADDRESS
 from .model import is_2_battery, is_4_mppt, is_745_platform, is_single_phase
 from .protocol import ProtocolCommand
@@ -18,7 +19,7 @@ class ET(Inverter):
     """Class representing inverter of ET/EH/BT/BH or GE's GEH families AKA platform 205 or 745"""
 
     # Modbus registers from offset 0x891c (35100), count 0x7d (125)
-    __all_sensors: tuple[Sensor, ...] = (
+    __all_sensors: Tuple[Sensor, ...] = (
         Timestamp("timestamp", 35100, "Timestamp"),
         Voltage("vpv1", 35103, "PV1 Voltage", Kind.PV),
         Current("ipv1", 35104, "PV1 Current", Kind.PV),
@@ -159,7 +160,7 @@ class ET(Inverter):
     )
 
     # Modbus registers from offset 0x9088 (37000)
-    __all_sensors_battery: tuple[Sensor, ...] = (
+    __all_sensors_battery: Tuple[Sensor, ...] = (
         Integer("battery_bms", 37000, "Battery BMS", "", Kind.BAT),
         Integer("battery_index", 37001, "Battery Index", "", Kind.BAT),
         Integer("battery_status", 37002, "Battery Status", "", Kind.BAT),
@@ -192,7 +193,7 @@ class ET(Inverter):
     )
 
     # Modbus registers from offset 0x9858 (39000)
-    __all_sensors_battery2: tuple[Sensor, ...] = (
+    __all_sensors_battery2: Tuple[Sensor, ...] = (
         Integer("battery2_status", 39000, "Battery 2 Status", "", Kind.BAT),
         Temp("battery2_temperature", 39001, "Battery 2 Temperature", Kind.BAT),
         Integer("battery2_charge_limit", 39002, "Battery 2 Charge Limit", "A", Kind.BAT),
@@ -224,7 +225,7 @@ class ET(Inverter):
 
     # Inverter's meter data
     # Modbus registers from offset 0x8ca0 (36000)
-    __all_sensors_meter: tuple[Sensor, ...] = (
+    __all_sensors_meter: Tuple[Sensor, ...] = (
         Integer("commode", 36000, "Commode"),
         Integer("rssi", 36001, "RSSI"),
         Integer("manufacture_code", 36002, "Manufacture Code"),
@@ -281,7 +282,7 @@ class ET(Inverter):
 
     # Inverter's MPPT data
     # Modbus registers from offset 0x89e5 (35301)
-    __all_sensors_mppt: tuple[Sensor, ...] = (
+    __all_sensors_mppt: Tuple[Sensor, ...] = (
         Power4("ppv_total", 35301, "PV Power Total", Kind.PV),
         Integer("pv_channel", 35303, "PV Channel", "", Kind.PV),
         Voltage("vpv5", 35304, "PV5 Voltage", Kind.PV),
@@ -339,7 +340,7 @@ class ET(Inverter):
     )
 
     # Modbus registers of inverter settings, offsets are modbus register addresses
-    __all_settings: tuple[Sensor, ...] = (
+    __all_settings: Tuple[Sensor, ...] = (
         Integer("comm_address", 45127, "Communication Address", ""),
         Long("modbus_baud_rate", 45132, "Modbus Baud rate", ""),
         Timestamp("time", 45200, "Inverter time"),
@@ -370,10 +371,8 @@ class ET(Inverter):
 
         Integer("battery_soc_protection", 47500, "Battery SoC Protection", "", Kind.BAT),
 
-        Integer("grid_export", 47509, "Grid Export Limit Enabled", "", Kind.GRID),
+        Integer("grid_export", 47509, "Grid Export Enabled", "", Kind.GRID),
         Integer("grid_export_limit", 47510, "Grid Export Limit", "W", Kind.GRID),
-        Integer("ems_power_mode", 47511, "EMS Power Mode", "", Kind.BAT),
-        Integer("ems_power", 47512, "EMS Power", "W", Kind.BAT),
 
         Integer("battery_protocol_code", 47514, "Battery Protocol Code", "", Kind.BAT),
 
@@ -433,7 +432,7 @@ class ET(Inverter):
     )
 
     # Settings added in ARM firmware 19
-    __settings_arm_fw_19: tuple[Sensor, ...] = (
+    __settings_arm_fw_19: Tuple[Sensor, ...] = (
         Integer("fast_charging", 47545, "Fast Charging Enabled", "", Kind.BAT),
         Integer("fast_charging_soc", 47546, "Fast Charging SoC", "%", Kind.BAT),
         EcoModeV2("eco_mode_1", 47547, "Eco Mode Group 1"),
@@ -454,7 +453,7 @@ class ET(Inverter):
     )
 
     # Settings added in ARM firmware 22
-    __settings_arm_fw_22: tuple[Sensor, ...] = (
+    __settings_arm_fw_22: Tuple[Sensor, ...] = (
         Long("peak_shaving_power_limit", 47542, "Peak Shaving Power Limit"),
         Integer("peak_shaving_soc", 47544, "Peak Shaving SoC"),
         # EcoModeV2("eco_modeV2_5", 47571, "Eco Mode Version 2 Power Group 5"),
@@ -492,7 +491,6 @@ class ET(Inverter):
         self._sensors_meter = self.__all_sensors_meter
         self._sensors_mppt = self.__all_sensors_mppt
         self._settings: dict[str, Sensor] = {s.id_: s for s in self.__all_settings}
-        self._sensors_map: dict[str, Sensor] | None = None
 
     @staticmethod
     def _single_phase_only(s: Sensor) -> bool:
@@ -570,7 +568,7 @@ class ET(Inverter):
             logger.debug("Cannot read _has_peak_shaving settings, disabling it.")
             self._has_peak_shaving = False
 
-    async def read_runtime_data(self) -> dict[str, Any]:
+    async def read_runtime_data(self) -> Dict[str, Any]:
         response = await self._read_from_socket(self._READ_RUNNING_DATA)
         data = self._map_response(response, self._sensors)
 
@@ -606,9 +604,17 @@ class ET(Inverter):
                     logger.info("Extended meter values not supported, disabling further attempts.")
                     self._has_meter_extended2 = False
                     self._sensors_meter = tuple(filter(self._not_extended_meter2, self._sensors_meter))
-                    response = await self._read_from_socket(self._READ_METER_DATA_EXTENDED)
-                    data.update(
-                        self._map_response(response, self._sensors_meter))
+                    try:
+                        response = await self._read_from_socket(self._READ_METER_DATA_EXTENDED)
+                        data.update(
+                            self._map_response(response, self._sensors_meter))
+                    except RequestRejectedException as ex:
+                        if ex.message == ILLEGAL_DATA_ADDRESS:
+                            logger.info("Extended meter values not supported, disabling further attempts.")
+                            self._has_meter_extended = False
+                            self._sensors_meter = tuple(filter(self._not_extended_meter, self._sensors_meter))
+                        else:
+                                raise ex
                 else:
                     raise ex
         elif self._has_meter_extended:
@@ -642,34 +648,27 @@ class ET(Inverter):
 
         return data
 
-    async def read_sensor(self, sensor_id: str) -> Any:
-        sensor: Sensor = self._get_sensor(sensor_id)
-        if sensor:
-            return await self._read_sensor(sensor)
-        if sensor_id.startswith("modbus"):
-            response = await self._read_from_socket(self._read_command(int(sensor_id[7:]), 1))
-            return int.from_bytes(response.read(2), byteorder="big", signed=True)
-        raise ValueError(f'Unknown sensor "{sensor_id}"')
-
     async def read_setting(self, setting_id: str) -> Any:
-        setting: Sensor = self._settings.get(setting_id)
+        setting = self._settings.get(setting_id)
         if setting:
-            return await self._read_sensor(setting)
-        if setting_id.startswith("modbus"):
-            response = await self._read_from_socket(self._read_command(int(setting_id[7:]), 1))
-            return int.from_bytes(response.read(2), byteorder="big", signed=True)
-        raise ValueError(f'Unknown setting "{setting_id}"')
+            return await self._read_setting(setting)
+        else:
+            if setting_id.startswith("modbus"):
+                response = await self._read_from_socket(self._read_command(int(setting_id[7:]), 1))
+                return int.from_bytes(response.read(2), byteorder="big", signed=True)
+            else:
+                raise ValueError(f'Unknown setting "{setting_id}"')
 
-    async def _read_sensor(self, sensor: Sensor) -> Any:
+    async def _read_setting(self, setting: Sensor) -> Any:
         try:
-            count = (sensor.size_ + (sensor.size_ % 2)) // 2
-            response = await self._read_from_socket(self._read_command(sensor.offset, count))
-            return sensor.read_value(response)
+            count = (setting.size_ + (setting.size_ % 2)) // 2
+            response = await self._read_from_socket(self._read_command(setting.offset, count))
+            return setting.read_value(response)
         except RequestRejectedException as ex:
             if ex.message == ILLEGAL_DATA_ADDRESS:
-                logger.debug("Unsupported sensor/setting %s", sensor.id_)
-                self._settings.pop(sensor.id_, None)
-                raise ValueError(f'Unknown sensor/setting "{sensor.id_}"')
+                logger.debug("Unsupported setting %s", setting.id_)
+                self._settings.pop(setting.id_, None)
+                raise ValueError(f'Unknown setting "{setting.id_}"')
             return None
 
     async def write_setting(self, setting_id: str, value: Any):
@@ -695,7 +694,7 @@ class ET(Inverter):
         else:
             await self._read_from_socket(self._write_multi_command(setting.offset, raw_value))
 
-    async def read_settings_data(self) -> dict[str, Any]:
+    async def read_settings_data(self) -> Dict[str, Any]:
         data = {}
         for setting in self.settings():
             try:
@@ -713,8 +712,8 @@ class ET(Inverter):
         if export_limit >= 0:
             await self.write_setting('grid_export_limit', export_limit)
 
-    async def get_operation_modes(self, include_emulated: bool) -> tuple[OperationMode, ...]:
-        result = list(OperationMode)
+    async def get_operation_modes(self, include_emulated: bool) -> Tuple[OperationMode, ...]:
+        result = [e for e in OperationMode]
         if not self._has_peak_shaving:
             result.remove(OperationMode.PEAK_SHAVING)
         if not is_745_platform(self):
@@ -736,9 +735,10 @@ class ET(Inverter):
         eco_mode = await self.read_setting('eco_mode_1')
         if eco_mode.is_eco_charge_mode():
             return OperationMode.ECO_CHARGE
-        if eco_mode.is_eco_discharge_mode():
+        elif eco_mode.is_eco_discharge_mode():
             return OperationMode.ECO_DISCHARGE
-        return OperationMode.ECO
+        else:
+            return OperationMode.ECO
 
     async def set_operation_mode(self, operation_mode: OperationMode, eco_mode_power: int = 100,
                                  eco_mode_soc: int = 100) -> None:
@@ -776,7 +776,7 @@ class ET(Inverter):
             eco_mode: EcoMode | Sensor = self._settings.get('eco_mode_1')
             # Load the current values to try to detect schedule type
             try:
-                await self._read_sensor(eco_mode)
+                await self._read_setting(eco_mode)
             except ValueError:
                 pass
             eco_mode.set_schedule_type(ScheduleType.ECO_MODE, is_745_platform(self))
@@ -797,12 +797,7 @@ class ET(Inverter):
         if 0 <= dod <= 100:
             await self.write_setting('battery_discharge_depth', 100 - dod)
 
-    def _get_sensor(self, sensor_id: str) -> Sensor | None:
-        if self._sensors_map is None:
-            self._sensors_map = {s.id_: s for s in self.sensors()}
-        return self._sensors_map.get(sensor_id)
-
-    def sensors(self) -> tuple[Sensor, ...]:
+    def sensors(self) -> Tuple[Sensor, ...]:
         result = self._sensors + self._sensors_meter
         if self._has_battery:
             result = result + self._sensors_battery
@@ -812,7 +807,7 @@ class ET(Inverter):
             result = result + self._sensors_mppt
         return result
 
-    def settings(self) -> tuple[Sensor, ...]:
+    def settings(self) -> Tuple[Sensor, ...]:
         return tuple(self._settings.values())
 
     async def _clear_battery_mode_param(self) -> None:
