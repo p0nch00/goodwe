@@ -144,7 +144,7 @@ class ET(Inverter):
         Energy("e_bat_discharge_day", 35211, "Today Battery Discharge", Kind.BAT),
         Long("diagnose_result", 35220, "Diag Status Code"),
         EnumBitmap4("diagnose_result_label", 35220, DIAG_STATUS_CODES, "Diag Status"),
-        # ppv1 + ppv2 + ppv3 + ppv4 + pbattery1 - active_power
+        # ppv1 + ppv2 + ppv3 + ppv4 + pbattery1 + (pbattery2) - active_power
         Calculated("house_consumption",
                    lambda data:
                    read_bytes4(data, 35105, 0) +
@@ -154,10 +154,16 @@ class ET(Inverter):
                    read_bytes4_signed(data, 35182) -
                    read_bytes2_signed(data, 35140),
                    "House Consumption", "W", Kind.AC),
+        Enum2("battery2_mode_label", 35184, BATTERY_MODES, "Battery 2 Mode", Kind.BAT),
+    )
 
-        # Power4S("pbattery2", 35264, "Battery2 Power", Kind.BAT),
-        # Integer("battery2_mode", 35266, "Battery2 Mode code", "", Kind.BAT),
-        # Enum2("battery2_mode_label", 35184, BATTERY_MODES, "Battery2 Mode", Kind.BAT),
+    # Modbus registers from offset 0x89b2 (35259)
+    __sensors_bat2: Tuple[Sensor, ...] = (
+        Voltage("vbattery2", 35262, "Battery 2 Voltage", Kind.BAT),
+        Power4S("pbattery2", 35264, "Battery 2 Power", Kind.BAT),
+        # 35264 UNKNOWN FFFF Value
+        CurrentS("ibattery2", 35263, "Battery 2 Power", Kind.BAT),
+        Integer("battery2_mode", 35266, "Battery 2 Mode code", "", Kind.BAT),
     )
 
     # Modbus registers from offset 0x9088 (37000)
@@ -474,6 +480,7 @@ class ET(Inverter):
         self.comm_adress: int = comm_addr
         self._READ_DEVICE_VERSION_INFO: ProtocolCommand = self._read_command(0x88b8, 0x0021)
         self._READ_RUNNING_DATA: ProtocolCommand = self._read_command(0x891c, 0x007d)
+        self._READ_RUNNING2_DATA: ProtocolCommand = self._read_command(0x8999, 0x007d)
         self._READ_METER_DATA: ProtocolCommand = self._read_command(0x8ca0, 0x2d)
         self._READ_METER_DATA_EXTENDED: ProtocolCommand = self._read_command(0x8ca0, 0x3a)
         self._READ_METER_DATA_EXTENDED2: ProtocolCommand = self._read_command(0x8ca0, 0x7d)
@@ -488,6 +495,7 @@ class ET(Inverter):
         self._has_meter_extended2: bool = False
         self._has_mppt: bool = False
         self._sensors = self.__all_sensors
+        self._sensors_bat2 = self.__sensors_bat2
         self._sensors_battery = self.__all_sensors_battery
         self._sensors_battery2 = self.__all_sensors_battery2
         self._sensors_meter = self.__all_sensors_meter
@@ -572,8 +580,10 @@ class ET(Inverter):
 
     async def read_runtime_data(self) -> Dict[str, Any]:
         response = await self._read_from_socket(self._READ_RUNNING_DATA)
+        response2 = await self._read_from_socket(self._READ_RUNNING2_DATA)
         data = self._map_response(response, self._sensors)
-
+        data.update(self._map_response(response2, self._sensors_bat2))
+        data['house_consumption'] =  data['house_consumption'] +  data['pbattery2']
         self._has_battery = data.get('battery_mode', 0) != 0
         if self._has_battery:
             try:
@@ -812,7 +822,7 @@ class ET(Inverter):
             await self.write_setting('battery_discharge_depth', 100 - dod)
 
     def sensors(self) -> Tuple[Sensor, ...]:
-        result = self._sensors + self._sensors_meter
+        result = self._sensors + self._sensors_meter + self._sensors_bat2
         if self._has_battery:
             result = result + self._sensors_battery
         if self._has_battery2:
