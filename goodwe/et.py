@@ -508,8 +508,8 @@ class ET(Inverter):
         self._has_meter_extended2: bool = False
         self._has_mppt: bool = False
         self._sensors = self.__all_sensors
-        self._sensors_parallelsystem = self.__all_parallelsystem
-        self._sensors_parallelsystem_2 = self.__all_parallelsystem_2
+        self._sensors_parallelsystem = self.__sensors_parallelsystem
+        self._sensors_parallelsystem_2 = self.__sensors_parallelsystem_2
         self._sensors_bat2 = self.__sensors_bat2
         self._sensors_battery = self.__all_sensors_battery
         self._sensors_battery2 = self.__all_sensors_battery2
