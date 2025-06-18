@@ -508,6 +508,8 @@ class ET(Inverter):
         self._has_meter_extended2: bool = False
         self._has_mppt: bool = False
         self._sensors = self.__all_sensors
+        self._sensors_parallelsystem = self.__all_parallelsystem
+        self._sensors_parallelsystem_2 = self.__all_parallelsystem_2
         self._sensors_bat2 = self.__sensors_bat2
         self._sensors_battery = self.__all_sensors_battery
         self._sensors_battery2 = self.__all_sensors_battery2
@@ -599,11 +601,11 @@ class ET(Inverter):
 
 
         paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
-        data.update(self._map_response(paralelsystem1, self.__sensors_parallelsystem))
+        data.update(self._map_response(paralelsystem1, self._sensors_parallelsystem))
 
         if self.comm_adress == 247:
             paralelsystem2 = await self._read_from_socket(self._READ_PARALELSYSTEM_2)
-            data.update(self._map_response(paralelsystem2, self.__sensors_parallelsystem_2))
+            data.update(self._map_response(paralelsystem2, self._sensors_parallelsystem_2))
 
 
         data['house_consumption'] =  data['house_consumption'] +  data['pbattery2']
