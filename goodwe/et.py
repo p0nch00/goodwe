@@ -605,11 +605,11 @@ class ET(Inverter):
         data = self._map_response(response, self._sensors)
         data.update(self._map_response(response2, self._sensors_bat2))
 
-        if self.comm_adress == 247:
-            paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
-            data.update(self._map_response(paralelsystem1, self._sensors_parallelsystem))
-            paralelsystem2 = await self._read_from_socket(self._READ_PARALELSYSTEM_2)
-            data.update(self._map_response(paralelsystem2, self._sensors_parallelsystem_2))
+        #if self.comm_adress == 247:
+        #    paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
+        #    data.update(self._map_response(paralelsystem1, self._sensors_parallelsystem))
+        #    paralelsystem2 = await self._read_from_socket(self._READ_PARALELSYSTEM_2)
+        #    data.update(self._map_response(paralelsystem2, self._sensors_parallelsystem_2))
 
 
         data['house_consumption'] =  data['house_consumption'] +  data['pbattery2']
