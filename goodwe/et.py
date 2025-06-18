@@ -166,16 +166,22 @@ class ET(Inverter):
         Integer("battery2_mode", 35266, "Battery 2 Mode code", "", Kind.BAT),
     )
 
-    # Modbus registers for Paralleling System EZLink3000 (10400)
+    # Modbus registers for Paralleling System EZLink3000 (10400), all dsp
     __sensors_parallelsystem: Tuple[Sensor, ...] = (
         Integer("inverter_quantity", 10400, "Inverter Quantity",""),
-        Power4("pv_total_parallelsystem", 10412, "PV Total ParallelSystem",Kind.PV),
+        Power4("para_pvtotal", 10412, "PV Total ParallelSystem",Kind.PV),
+        Power4S("para_meter_total", 10418, "Paralel System Meter Total",Kind.GRID),
+        Power4S("para_bat_pwr", 10414, "Paralel System Battery Power",Kind.BAT),
+    
     )
 
-    # Modbus registers for Paralleling System EZLink3000 (10470)
+    # Modbus registers for Paralleling System EZLink3000 (10470), only master dsp, not inverter dsp
     __sensors_parallelsystem_2: Tuple[Sensor, ...] = (
-        Integer("paralelsystem_soc", 10472, "Paralel System", "", Kind.BAT),
-        Integer("paralelsystem_capacity_kwh", 10473, "Paralel System Capacity KWH", "", Kind.BAT),
+        Integer("para_bat_soc", 10472, "Paralel System", "", Kind.BAT),
+        Integer("para_sbat_cap", 10473, "Paralel System Capacity KWH", "", Kind.BAT),
+        Power4S("para_meter_l1", 10481,"Paralel System Meter R/L1", Kind.GRID),
+        Power4S("para_meter_l2", 10483, "Paralel System Meter S/L2", Kind.GRID),
+        Power4S("para_meter_l3", 10485, "Paralel System Meter T/L3", Kind.GRID),
     )
     # Modbus registers from offset 0x9088 (37000)
     __all_sensors_battery: Tuple[Sensor, ...] = (
@@ -599,11 +605,9 @@ class ET(Inverter):
         data = self._map_response(response, self._sensors)
         data.update(self._map_response(response2, self._sensors_bat2))
 
-
-        paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
-        data.update(self._map_response(paralelsystem1, self._sensors_parallelsystem))
-
         if self.comm_adress == 247:
+            paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
+            data.update(self._map_response(paralelsystem1, self._sensors_parallelsystem))
             paralelsystem2 = await self._read_from_socket(self._READ_PARALELSYSTEM_2)
             data.update(self._map_response(paralelsystem2, self._sensors_parallelsystem_2))
 
