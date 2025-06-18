@@ -166,6 +166,17 @@ class ET(Inverter):
         Integer("battery2_mode", 35266, "Battery 2 Mode code", "", Kind.BAT),
     )
 
+    # Modbus registers for Paralleling System EZLink3000 (10400)
+    __sensors_parallelsystem: Tuple[Sensor, ...] = (
+        Integer("inverter_quantity", 10400, "Inverter Quantity",""),
+        Power4("pv_total_parallelsystem", 10412, "PV Total ParallelSystem",Kind.PV),
+    )
+
+    # Modbus registers for Paralleling System EZLink3000 (10470)
+    __sensors_parallelsystem_2: Tuple[Sensor, ...] = (
+        Integer("paralelsystem_soc", 10472, "Paralel System", "", Kind.BAT),
+        Integer("paralelsystem_capacity_kwh", 10473, "Paralel System Capacity KWH", "", Kind.BAT),
+    )
     # Modbus registers from offset 0x9088 (37000)
     __all_sensors_battery: Tuple[Sensor, ...] = (
         Integer("battery_bms", 37000, "Battery BMS", "", Kind.BAT),
@@ -481,6 +492,8 @@ class ET(Inverter):
         self._READ_DEVICE_VERSION_INFO: ProtocolCommand = self._read_command(0x88b8, 0x0021)
         self._READ_RUNNING_DATA: ProtocolCommand = self._read_command(0x891c, 0x007d)
         self._READ_RUNNING2_DATA: ProtocolCommand = self._read_command(0x8999, 0x007d)
+        self._READ_PARALELSYSTEM: ProtocolCommand = self._read_command(0x28a0, 0x0032)
+        self._READ_PARALELSYSTEM_2: ProtocolCommand = self._read_command(0x28e6, 0x0032)
         self._READ_METER_DATA: ProtocolCommand = self._read_command(0x8ca0, 0x2d)
         self._READ_METER_DATA_EXTENDED: ProtocolCommand = self._read_command(0x8ca0, 0x3a)
         self._READ_METER_DATA_EXTENDED2: ProtocolCommand = self._read_command(0x8ca0, 0x7d)
@@ -583,6 +596,16 @@ class ET(Inverter):
         response2 = await self._read_from_socket(self._READ_RUNNING2_DATA)
         data = self._map_response(response, self._sensors)
         data.update(self._map_response(response2, self._sensors_bat2))
+
+
+        paralelsystem1 = await self._read_from_socket(self._READ_PARALELSYSTEM)
+        data.update(self._map_response(paralelsystem1, self.__sensors_parallelsystem))
+
+        if self.comm_adress == 247:
+            paralelsystem2 = await self._read_from_socket(self._READ_PARALELSYSTEM_2)
+            data.update(self._map_response(paralelsystem2, self.__sensors_parallelsystem_2))
+
+
         data['house_consumption'] =  data['house_consumption'] +  data['pbattery2']
         self._has_battery = data.get('battery_mode', 0) != 0
         if self._has_battery:
